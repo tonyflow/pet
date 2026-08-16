@@ -1,0 +1,45 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pet-mlops"
+version = "0.1.0"
+description = "Reproducible Oxford-IIIT Pet classification and segmentation foundations"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "numpy>=2.0,<3",
+  "pillow>=11,<13",
+  "polars>=1.30,<2",
+  "pyarrow>=18,<24",
+  "pyyaml>=6,<7",
+  "torch>=2.6,<3",
+  "torchvision>=0.21,<1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3,<10",
+  "pytest-cov>=6,<8",
+  "ruff>=0.11,<1",
+]
+
+[project.scripts]
+pet-prepare-data = "pet_mlops.cli.prepare_data:main"
+pet-data-smoke = "pet_mlops.cli.data_smoke:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pet_mlops"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "RUF"]
+
