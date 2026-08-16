@@ -1,8 +1,8 @@
-# Pet MLOps
+# Classification & Segmentation
 
-Phase 1 foundations for a reproducible Oxford-IIIT Pet project with two tasks:
-37-class breed classification and foreground segmentation. The project targets Python 3.12,
-PyTorch/Torchvision, and Polars (with PyArrow for Parquet interoperability).
+Use Oxford-IIIT Pet project with two tasks:
+1. 37-class breed classification and 
+2. foreground segmentation. 
 
 ## Local setup
 
