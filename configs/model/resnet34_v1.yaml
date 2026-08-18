@@ -1,14 +1,14 @@
 schema_version: 1
 backbone:
   name: resnet34
-  version: backbone-dev
+  version: resnet34-backbone-v1
   feature_contract: resnet34-pyramid-v1
 heads:
   classification:
-    version: classification-head-dev
+    version: classification-head-v1
     requires_feature_contract: resnet34-pyramid-v1
     num_classes: 37
   segmentation:
-    version: segmentation-head-dev
+    version: segmentation-head-v1
     requires_feature_contract: resnet34-pyramid-v1
     num_classes: 2

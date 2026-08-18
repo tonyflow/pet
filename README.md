@@ -31,3 +31,22 @@ Polars workflows. Augmentation is applied to training only, and every geometric 
 same sampled parameters for each image/mask pair.
 
 See [docs/reproducibility.md](docs/reproducibility.md) for controls and limitations.
+
+## Versioned models and training
+
+`configs/model/resnet34_v1.yaml` is the compatibility boundary between the shared ResNet-34
+feature pyramid and the independently versioned classification and segmentation heads. A model
+or checkpoint is rejected before weight loading when its backbone version, feature contract,
+selected head version, or class count differs from the expected manifest. Changing the other
+task's head version does not invalidate a checkpoint.
+
+The model supports `frozen_backbone` and `fine_tune` training modes. In frozen mode the encoder
+parameters and batch-normalization statistics stay fixed; in fine-tuning mode the complete model
+is trainable. The epoch trainer uses CUDA float16 autocast and gradient scaling only when both AMP
+is requested and the selected device is CUDA, and safely falls back to full precision on CPU.
+
+Small synthetic CPU training tests cover both heads without downloading data:
+
+```bash
+.venv/bin/pytest tests/test_models.py tests/test_training.py
+```

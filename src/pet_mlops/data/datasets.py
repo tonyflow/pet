@@ -14,6 +14,8 @@ Task = Literal["classification", "segmentation", "multitask"]
 
 
 class ManifestPetDataset(Dataset):
+    """Manifest-ordered Oxford-IIIT Pet dataset for one or both project tasks."""
+
     def __init__(
         self, root: Path, manifest_path: Path, transform: PairedTransform, task: Task
     ) -> None:
@@ -84,4 +86,6 @@ class ManifestPetDataset(Dataset):
             return image_tensor, int(category), sample_id
         if self.task == "segmentation":
             return image_tensor, mask_tensor, sample_id
+
+        # Task is training
         return image_tensor, {"category": int(category), "mask": mask_tensor}, sample_id

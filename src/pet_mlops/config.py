@@ -9,6 +9,8 @@ import yaml
 
 @dataclass(frozen=True)
 class DatasetConfig:
+    """Dataset locations and deterministic split settings."""
+
     root: Path
     manifest_dir: Path
     download: bool
@@ -19,6 +21,8 @@ class DatasetConfig:
 
 @dataclass(frozen=True)
 class TransformConfig:
+    """Image normalization and paired augmentation settings."""
+
     image_size: tuple[int, int]
     horizontal_flip_probability: float
     rotation_degrees: float
@@ -29,6 +33,8 @@ class TransformConfig:
 
 @dataclass(frozen=True)
 class LoaderConfig:
+    """PyTorch data-loader batching and worker settings."""
+
     batch_size: int
     num_workers: int
     pin_memory: bool
@@ -36,12 +42,16 @@ class LoaderConfig:
 
 @dataclass(frozen=True)
 class ReproducibilityConfig:
+    """Random seed and deterministic-algorithm settings."""
+
     seed: int
     deterministic_algorithms: bool
 
 
 @dataclass(frozen=True)
 class DataConfig:
+    """Complete validated data-pipeline configuration."""
+
     dataset: DatasetConfig
     transforms: TransformConfig
     loader: LoaderConfig

@@ -34,13 +34,17 @@ def main() -> None:
     seed_everything(config.reproducibility.seed, config.reproducibility.deterministic_algorithms)
     loaders = build_loaders(config, task="segmentation")
     for split, loader in loaders.items():
+
         images, masks, sample_ids = next(iter(loader))
+
         assert images.device.type == "cpu"
         assert images.shape[-2:] == masks.shape[-2:] == config.transforms.image_size
         assert set(torch.unique(masks).tolist()).issubset({0, 1})
+
         # Undo ImageNet normalization for a human-readable integrity artifact.
         mean = torch.tensor(config.transforms.mean).view(3, 1, 1)
         std = torch.tensor(config.transforms.std).view(3, 1, 1)
+
         save_overlay(images[0] * std + mean, masks[0], args.output / f"{split}-{sample_ids[0]}.png")
         print(f"{split}: images={tuple(images.shape)} masks={tuple(masks.shape)}")
 

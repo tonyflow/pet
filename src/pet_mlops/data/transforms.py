@@ -29,6 +29,8 @@ def trimap_to_foreground(mask: torch.Tensor) -> torch.Tensor:
 
 @dataclass(frozen=True)
 class PairedTransform:
+    """Apply synchronized geometry to an image and its segmentation mask."""
+
     config: TransformConfig
     training: bool
 
