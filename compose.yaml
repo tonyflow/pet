@@ -1,0 +1,24 @@
+name: pet-mlops
+
+services:
+  inference-smoke:
+    image: ${INFERENCE_IMAGE:-pet-mlops-inference}:${IMAGE_TAG:-dev}
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.inference
+    command: ["--device", "cpu"]
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  trainer-smoke:
+    platform: linux/amd64
+    image: ${TRAINER_IMAGE:-pet-mlops-trainer}:${IMAGE_TAG:-dev}
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.trainer
+    command: ["--device", "cuda"]
+    gpus: all
+    read_only: true
+    tmpfs:
+      - /tmp

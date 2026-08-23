@@ -28,6 +28,7 @@ dev = [
 [project.scripts]
 pet-prepare-data = "pet_mlops.cli.prepare_data:main"
 pet-data-smoke = "pet_mlops.cli.data_smoke:main"
+pet-container-smoke = "pet_mlops.cli.container_smoke:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pet_mlops"]
@@ -42,4 +43,3 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "RUF"]
-

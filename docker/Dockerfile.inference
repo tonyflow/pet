@@ -1,0 +1,32 @@
+# syntax=docker/dockerfile:1.7
+ARG PYTHON_BASE=python:3.12.8-slim-bookworm
+FROM ${PYTHON_BASE}
+
+ARG TORCH_VERSION=2.13.0
+ARG TORCHVISION_VERSION=0.28.0
+ARG PYTORCH_INDEX_URL=https://download.pytorch.org/whl/cpu
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app/src \
+    VIRTUAL_ENV=/opt/venv \
+    PATH=/opt/venv/bin:$PATH
+
+RUN python -m venv "$VIRTUAL_ENV" \
+    && pip install --no-cache-dir --upgrade pip==26.0.1
+
+WORKDIR /app
+COPY docker/requirements.runtime.txt /tmp/requirements.runtime.txt
+RUN pip install --no-cache-dir \
+        "torch==${TORCH_VERSION}" "torchvision==${TORCHVISION_VERSION}" \
+        --index-url "${PYTORCH_INDEX_URL}" -c /tmp/requirements.runtime.txt \
+    && pip install --no-cache-dir -r /tmp/requirements.runtime.txt
+
+COPY src ./src
+COPY configs/model ./configs/model
+RUN useradd --create-home --uid 10001 appuser \
+    && chown -R appuser:appuser /app
+
+USER appuser
+ENTRYPOINT ["python", "-m", "pet_mlops.cli.container_smoke"]
+CMD ["--device", "cpu"]

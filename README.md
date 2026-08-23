@@ -50,3 +50,16 @@ Small synthetic CPU training tests cover both heads without downloading data:
 ```bash
 .venv/bin/pytest tests/test_models.py tests/test_training.py
 ```
+
+## Reproducible containers
+
+Phase 3 adds a CUDA trainer image and a CPU inference image with exact runtime pins. The quickest
+portable check builds the inference image and runs both model heads on CPU:
+
+```bash
+docker compose build inference-smoke
+docker compose run --rm inference-smoke
+```
+
+See [docs/containers.md](docs/containers.md) for the NVIDIA workflow, tagging convention, and
+credential-safe GHCR publish/pull commands.
