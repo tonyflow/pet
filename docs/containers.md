@@ -30,7 +30,13 @@ the selected device, and output tensor shapes. Compose uses a read-only root fil
 provides a temporary `/tmp` mount. Later training/evaluation phases can add explicit read-only data
 mounts and writable artifact mounts without baking either into an image.
 
-## Image tags
+## GitHub Container Registry and image tags
+
+GitHub Container Registry is GitHub's service for storing and distributing container images. It
+uses the hostname `ghcr.io`. In this project, it provides one central place from which a RunPod
+machine or another deployment environment can download an exact, versioned trainer or inference
+image. The images are associated with a GitHub owner or organization, but they are versioned
+separately from the source repository.
 
 Use the same version suffix for both image roles. Publish one human-readable release tag and one
 immutable Git revision tag, all lowercase:
@@ -45,43 +51,48 @@ ghcr.io/<owner>/pet-mlops-inference:sha-<12-character-git-revision>
 Do not use `latest` for a reproducible run record. Store the pulled image digest alongside the Git
 revision, model/data versions, configuration, metrics, predictions, plots, latency, and GPU memory.
 
-## Simplest GHCR publish and pull flow
+## GitHub Container Registry script commands
 
-Authenticate without putting a token in a command argument or file. The token supplied on standard
-input needs `write:packages` to publish and `read:packages` to pull private packages:
+The helper script performs the login, build, tagging, publishing, download, and digest-inspection
+steps. The token needs GitHub's `write:packages` permission to publish images and `read:packages`
+permission to download private images.
 
-```bash
-printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_USER" --password-stdin
-```
-
-Build, tag, and push from the repository root:
+Display the built-in command summary at any time:
 
 ```bash
-OWNER=<lowercase-github-owner>
-VERSION=0.1.0
-REVISION=$(git rev-parse --short=12 HEAD)
-
-docker build --platform linux/amd64 -f docker/Dockerfile.trainer \
-  -t "ghcr.io/$OWNER/pet-mlops-trainer:$VERSION" .
-docker tag "ghcr.io/$OWNER/pet-mlops-trainer:$VERSION" \
-  "ghcr.io/$OWNER/pet-mlops-trainer:sha-$REVISION"
-docker push "ghcr.io/$OWNER/pet-mlops-trainer:$VERSION"
-docker push "ghcr.io/$OWNER/pet-mlops-trainer:sha-$REVISION"
-
-docker build -f docker/Dockerfile.inference -t "ghcr.io/$OWNER/pet-mlops-inference:$VERSION" .
-docker tag "ghcr.io/$OWNER/pet-mlops-inference:$VERSION" \
-  "ghcr.io/$OWNER/pet-mlops-inference:sha-$REVISION"
-docker push "ghcr.io/$OWNER/pet-mlops-inference:$VERSION"
-docker push "ghcr.io/$OWNER/pet-mlops-inference:sha-$REVISION"
+./scripts/github_container_registry.sh --help
 ```
 
-Pull by immutable Git tag (or, preferably, a recorded digest):
+Log in once. The script prompts for the GitHub username and token, and it does not display the
+token or store it in shell history:
 
 ```bash
-docker pull "ghcr.io/$OWNER/pet-mlops-trainer:sha-$REVISION"
-docker image inspect "ghcr.io/$OWNER/pet-mlops-trainer:sha-$REVISION" \
-  --format '{{index .RepoDigests 0}}'
+./scripts/github_container_registry.sh login
 ```
 
-Never commit, print, or request registry tokens. Unset `GHCR_TOKEN` after login; Docker stores the
-credential through its configured credential store.
+For automation, `GITHUB_USER` and `GITHUB_CONTAINER_REGISTRY_TOKEN` can instead be supplied as
+environment variables. These are environment-variable names, not values that should be committed
+to the repository. Docker saves a successful login through its configured credential store.
+
+Build, tag, and publish both images with one command from anywhere inside the repository. Replace
+`YOUR_GITHUB_OWNER` with the lowercase GitHub username or organization that owns the images:
+
+```bash
+./scripts/github_container_registry.sh publish YOUR_GITHUB_OWNER 0.1.0
+```
+
+The script builds both images for 64-bit Linux, creates the version and Git-revision tags, and
+publishes all four tags. It never creates a `latest` tag.
+
+Download an image by its immutable Git-revision tag and print its digest. Replace `GIT_REVISION`
+with the 12-character revision printed by the publish command:
+
+```bash
+./scripts/github_container_registry.sh pull \
+  YOUR_GITHUB_OWNER trainer GIT_REVISION
+
+./scripts/github_container_registry.sh pull \
+  YOUR_GITHUB_OWNER inference GIT_REVISION
+```
+
+Never commit, print, or request registry tokens.

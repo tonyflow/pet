@@ -62,4 +62,4 @@ docker compose run --rm inference-smoke
 ```
 
 See [docs/containers.md](docs/containers.md) for the NVIDIA workflow, tagging convention, and
-credential-safe GHCR publish/pull commands.
+the reusable script for credential-safe GitHub Container Registry publishing and downloads.
