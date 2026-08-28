@@ -1,0 +1,23 @@
+schema_version: 1
+dataset:
+  name: oxford_iiit_pet
+  root: /workspace/data/raw
+  manifest_dir: /workspace/data/processed/splits/v1
+  download: true
+  split_version: v1
+  validation_fraction: 0.2
+  split_seed: 1729
+transforms:
+  image_size: [224, 224]
+  horizontal_flip_probability: 0.5
+  rotation_degrees: 10.0
+  scale_range: [0.9, 1.1]
+  mean: [0.485, 0.456, 0.406]
+  std: [0.229, 0.224, 0.225]
+loader:
+  batch_size: 16
+  num_workers: 4
+  pin_memory: true
+reproducibility:
+  seed: 1729
+  deterministic_algorithms: true

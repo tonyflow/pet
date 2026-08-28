@@ -26,8 +26,10 @@ RUN pip install --no-cache-dir \
         --index-url "${PYTORCH_INDEX_URL}" -c /tmp/requirements.runtime.txt \
     && pip install --no-cache-dir -r /tmp/requirements.runtime.txt
 
+COPY pyproject.toml README.md ./
 COPY src ./src
-COPY configs/model ./configs/model
+RUN pip install --no-cache-dir --no-deps .
+COPY configs ./configs
 RUN useradd --create-home --uid 10001 appuser \
     && chown -R appuser:appuser /app
 

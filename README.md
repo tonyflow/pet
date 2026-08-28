@@ -51,6 +51,21 @@ Small synthetic CPU training tests cover both heads without downloading data:
 .venv/bin/pytest tests/test_models.py tests/test_training.py
 ```
 
+Run one complete task-specific training, validation, and test job with:
+
+```bash
+.venv/bin/pet-train \
+  --training-config configs/training/classification_smoke.yaml \
+  --data-config configs/data/oxford_pet.yaml \
+  --output-root artifacts/training \
+  --device cpu
+```
+
+Each immutable run directory retains copied configs, provenance and dependency versions,
+per-epoch validation predictions, test predictions, best/latest resumable checkpoints, metrics,
+latency, peak GPU memory, and an SVG loss curve. Use `--resume <latest.pt>` to continue a run in
+a new versioned directory. The Runpod configurations use persistent paths under `/workspace`.
+
 ## Reproducible containers
 
 Phase 3 adds a CUDA trainer image and a CPU inference image with exact runtime pins. The quickest

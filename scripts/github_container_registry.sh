@@ -71,8 +71,8 @@ build_tag_and_push() {
   local owner="$2"
   local version="$3"
   local revision="$4"
-  local version_image="$REGISTRY_HOST/$owner/pet-mlops-$role:$version"
-  local revision_image="$REGISTRY_HOST/$owner/pet-mlops-$role:sha-$revision"
+  local version_image="$REGISTRY_HOST/$owner/pet-$role:$version"
+  local revision_image="$REGISTRY_HOST/$owner/pet-$role:sha-$revision"
 
   printf '\nBuilding %s image for %s...\n' "$role" "$PLATFORM"
   docker build \
@@ -121,7 +121,7 @@ pull_image() {
   [[ "$revision" =~ ^[0-9a-f]{7,40}$ ]] || fail \
     "Git revision must contain 7 to 40 lowercase hexadecimal characters."
 
-  local image="$REGISTRY_HOST/$owner/pet-mlops-$role:sha-$revision"
+  local image="$REGISTRY_HOST/$owner/pet-$role:sha-$revision"
   docker pull --platform "$PLATFORM" "$image"
   printf 'Downloaded image digest:\n'
   docker image inspect "$image" --format '{{index .RepoDigests 0}}'

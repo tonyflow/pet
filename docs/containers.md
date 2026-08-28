@@ -2,8 +2,8 @@
 
 Phase 3 provides two independently tagged images:
 
-- `pet-mlops-trainer`: Linux CUDA 13.0 / cu130 PyTorch runtime for NVIDIA GPU training.
-- `pet-mlops-inference`: CPU-only runtime for local checks and inexpensive CPU hosting.
+- `pet-trainer`: Linux CUDA 13.0 / cu130 PyTorch runtime for NVIDIA GPU training.
+- `pet-inference`: CPU-only runtime for local checks and inexpensive CPU hosting.
 
 Both images pin Python, PyTorch, and direct/transitive Python runtime package versions, run as an
 unprivileged user, and default to a real ResNet-34 forward-pass smoke test. The trainer deliberately
@@ -42,10 +42,10 @@ Use the same version suffix for both image roles. Publish one human-readable rel
 immutable Git revision tag, all lowercase:
 
 ```text
-ghcr.io/<owner>/pet-mlops-trainer:0.1.0
-ghcr.io/<owner>/pet-mlops-trainer:sha-<12-character-git-revision>
-ghcr.io/<owner>/pet-mlops-inference:0.1.0
-ghcr.io/<owner>/pet-mlops-inference:sha-<12-character-git-revision>
+ghcr.io/<owner>/pet-trainer:0.1.0
+ghcr.io/<owner>/pet-trainer:sha-<12-character-git-revision>
+ghcr.io/<owner>/pet-inference:0.1.0
+ghcr.io/<owner>/pet-inference:sha-<12-character-git-revision>
 ```
 
 Do not use `latest` for a reproducible run record. Store the pulled image digest alongside the Git

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -45,7 +46,15 @@ def save_checkpoint(
     }
     if optimizer is not None:
         state["optimizer_state_dict"] = optimizer.state_dict()
-    torch.save(state, Path(path))
+    destination = Path(path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(dir=destination.parent, delete=False) as temporary:
+        temporary_path = Path(temporary.name)
+    try:
+        torch.save(state, temporary_path)
+        temporary_path.replace(destination)
+    finally:
+        temporary_path.unlink(missing_ok=True)
 
 
 def _manifest_from_checkpoint(raw: dict[str, Any]) -> ModelManifest:

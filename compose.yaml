@@ -1,8 +1,8 @@
-name: pet-mlops
+name: pet
 
 services:
   inference-smoke:
-    image: ${INFERENCE_IMAGE:-pet-mlops-inference}:${IMAGE_TAG:-dev}
+    image: ${INFERENCE_IMAGE:-pet-inference}:${IMAGE_TAG:-dev}
     build:
       context: .
       dockerfile: docker/Dockerfile.inference
@@ -13,7 +13,7 @@ services:
 
   trainer-smoke:
     platform: linux/amd64
-    image: ${TRAINER_IMAGE:-pet-mlops-trainer}:${IMAGE_TAG:-dev}
+    image: ${TRAINER_IMAGE:-pet-trainer}:${IMAGE_TAG:-dev}
     build:
       context: .
       dockerfile: docker/Dockerfile.trainer

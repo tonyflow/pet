@@ -1,9 +1,9 @@
 [build-system]
-requires = ["hatchling>=1.27"]
+requires = ["hatchling==1.27.0"]
 build-backend = "hatchling.build"
 
 [project]
-name = "pet-mlops"
+name = "pet"
 version = "0.1.0"
 description = "Reproducible Oxford-IIIT Pet classification and segmentation foundations"
 readme = "README.md"
@@ -29,6 +29,7 @@ dev = [
 pet-prepare-data = "pet_mlops.cli.prepare_data:main"
 pet-data-smoke = "pet_mlops.cli.data_smoke:main"
 pet-container-smoke = "pet_mlops.cli.container_smoke:main"
+pet-train = "pet_mlops.cli.train:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pet_mlops"]
