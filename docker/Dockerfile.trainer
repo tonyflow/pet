@@ -5,11 +5,13 @@ FROM ${CUDA_BASE}
 ARG TORCH_VERSION=2.13.0
 ARG TORCHVISION_VERSION=0.28.0
 ARG PYTORCH_INDEX_URL=https://download.pytorch.org/whl/cu130
+ARG GIT_REVISION=unknown
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app/src \
+    PET_GIT_REVISION=${GIT_REVISION} \
     VIRTUAL_ENV=/opt/venv \
     PATH=/opt/venv/bin:$PATH
 
@@ -30,7 +32,9 @@ COPY pyproject.toml README.md ./
 COPY src ./src
 RUN pip install --no-cache-dir --no-deps .
 COPY configs ./configs
+COPY scripts/runpod_training.sh ./scripts/runpod_training.sh
 RUN useradd --create-home --uid 10001 appuser \
+    && chmod 0555 /app/scripts/runpod_training.sh \
     && chown -R appuser:appuser /app
 
 USER appuser

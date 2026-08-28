@@ -52,6 +52,33 @@ ghcr.io/<owner>/pet-inference:sha-<12-character-git-revision>
 
 Do not use `latest` for a reproducible run record. Store the pulled image digest alongside the Git
 revision, model/data versions, configuration, metrics, predictions, plots, latency, and GPU memory.
+The publishing script also embeds the source revision as `PET_GIT_REVISION` in each image, so
+provenance collection does not depend on installing Git or copying the `.git` directory into the
+container.
+
+## Runpod training command
+
+The trainer image includes `/app/scripts/runpod_training.sh`. It prepares the dataset, finalizes or
+resumes classification when `latest.pt` already exists, then finalizes or resumes segmentation.
+All output is mirrored to `/workspace/logs/training.log`. A successful run creates
+`/workspace/TRAINING_COMPLETE`.
+
+Set task-specific run names when creating the Pod and use the script as its Docker command:
+
+```text
+PET_CLASSIFICATION_RUN_NAME=classification-<revision>
+PET_SEGMENTATION_RUN_NAME=segmentation-<revision>
+/app/scripts/runpod_training.sh
+```
+
+For recovery of a run trained by an older image, set `PET_CLASSIFICATION_GIT_REVISION` to that
+run's source revision. Provenance then distinguishes the original training revision from the
+revision embedded in the image used to finalize it.
+
+If a command fails, the script writes `/workspace/TRAINING_FAILED`, prints the exit status, and
+keeps the container alive for inspection. This prevents Runpod from repeatedly restarting the
+same fixed run directory. Delete the Pod promptly after inspecting a failure; the hard Pod
+termination deadline remains the final cost guard.
 
 ## GitHub Container Registry script commands
 

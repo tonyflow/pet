@@ -14,7 +14,7 @@ from pet.config import (
     TransformConfig,
 )
 from pet.training.config import TrainingConfig
-from pet.training.runner import run_training
+from pet.training.runner import _git_revision, run_training
 
 
 class TinyPetModel(nn.Module):
@@ -156,3 +156,76 @@ def test_runner_resumes_after_last_completed_epoch(tmp_path: Path, monkeypatch) 
 
     history = json.loads((second_run / "history.json").read_text(encoding="utf-8"))
     assert [row["epoch"] for row in history] == [2]
+
+
+def test_runner_finalizes_completed_existing_run(tmp_path: Path, monkeypatch) -> None:
+    images = torch.randn(2, 3, 4, 4)
+    targets = torch.tensor([1, 2])
+    batch = (images, targets, ["one", "two"])
+    monkeypatch.setattr("pet.training.runner.PetModel", TinyPetModel)
+    monkeypatch.setattr(
+        "pet.training.runner.build_loaders",
+        lambda _config, _task: {"train": [batch], "validation": [batch], "test": [batch]},
+    )
+    training_path = tmp_path / "training.yaml"
+    data_path = tmp_path / "data.yaml"
+    training_path.write_text("training\n", encoding="utf-8")
+    data_path.write_text("data\n", encoding="utf-8")
+    training = TrainingConfig(
+        schema_version=1,
+        task="classification",
+        mode="fine_tune",
+        epochs=1,
+        learning_rate=0.001,
+        weight_decay=0,
+        amp=False,
+        pretrained_backbone=False,
+        model_manifest=Path("configs/model/resnet34_v1.yaml"),
+    )
+    run_dir = tmp_path / "run"
+    data = _data_config(tmp_path)
+    run_training(
+        training,
+        data,
+        run_dir,
+        torch.device("cpu"),
+        training_config_path=training_path,
+        data_config_path=data_path,
+    )
+    (run_dir / "metrics.json").unlink()
+    (run_dir / "provenance.json").unlink()
+
+    metrics = run_training(
+        training,
+        data,
+        run_dir,
+        torch.device("cpu"),
+        training_config_path=training_path,
+        data_config_path=data_path,
+        resume=run_dir / "checkpoints" / "latest.pt",
+    )
+
+    assert metrics["test"]["samples"] == 2
+    assert (run_dir / "metrics.json").is_file()
+    assert (run_dir / "provenance.json").is_file()
+    history = json.loads((run_dir / "history.json").read_text(encoding="utf-8"))
+    assert [row["epoch"] for row in history] == [1]
+
+
+def test_git_revision_prefers_run_revision(monkeypatch) -> None:
+    monkeypatch.setenv("PET_GIT_REVISION", "container-revision")
+    monkeypatch.setenv("PET_RUN_GIT_REVISION", "training-revision")
+
+    assert _git_revision() == "training-revision"
+
+
+def test_git_revision_handles_missing_git(monkeypatch) -> None:
+    monkeypatch.delenv("PET_GIT_REVISION", raising=False)
+    monkeypatch.delenv("PET_RUN_GIT_REVISION", raising=False)
+
+    def missing_git(*_args, **_kwargs):
+        raise FileNotFoundError("git")
+
+    monkeypatch.setattr("pet.training.runner.subprocess.run", missing_git)
+
+    assert _git_revision() is None

@@ -64,7 +64,9 @@ Run one complete task-specific training, validation, and test job with:
 Each immutable run directory retains copied configs, provenance and dependency versions,
 per-epoch validation predictions, test predictions, best/latest resumable checkpoints, metrics,
 latency, peak GPU memory, and an SVG loss curve. Use `--resume <latest.pt>` to continue a run in
-a new versioned directory. The Runpod configurations use persistent paths under `/workspace`.
+a new versioned directory or reopen the same directory. Reopening a run whose configured epochs
+are already complete reruns final evaluation and safely regenerates metrics and provenance. The
+Runpod configurations use persistent paths under `/workspace`.
 
 ## Reproducible containers
 

@@ -78,6 +78,7 @@ build_tag_and_push() {
   docker build \
     --platform "$PLATFORM" \
     --file "docker/Dockerfile.$role" \
+    --build-arg "GIT_REVISION=$revision" \
     --tag "$version_image" \
     .
 

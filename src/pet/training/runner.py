@@ -41,10 +41,61 @@ def _sha256(path: Path) -> str:
 
 
 def _git_revision() -> str | None:
-    result = subprocess.run(
-        ["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=False
+    embedded_revision = os.environ.get("PET_RUN_GIT_REVISION") or os.environ.get(
+        "PET_GIT_REVISION"
     )
+    if embedded_revision:
+        return embedded_revision
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=False
+        )
+    except OSError:
+        return None
     return result.stdout.strip() if result.returncode == 0 else None
+
+
+def _load_history(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(value, list) or not all(isinstance(row, dict) for row in value):
+        raise ValueError(f"Invalid training history: {path}")
+    return value
+
+
+def _initialize_run_directory(
+    run_dir: Path,
+    training: TrainingConfig,
+    *,
+    training_config_path: Path,
+    data_config_path: Path,
+    resume: Path | None,
+) -> list[dict[str, Any]]:
+    if run_dir.exists():
+        if resume is None:
+            raise FileExistsError(
+                f"Run directory already exists: {run_dir}. Pass --resume with its latest "
+                "checkpoint to continue or finalize it."
+            )
+        required = [
+            run_dir / "configs",
+            run_dir / "checkpoints",
+            run_dir / "predictions",
+        ]
+        missing = [str(path) for path in required if not path.is_dir()]
+        if missing:
+            raise ValueError(f"Existing run directory is incomplete: {', '.join(missing)}")
+        return _load_history(run_dir / "history.json")
+
+    run_dir.mkdir(parents=True, exist_ok=False)
+    (run_dir / "configs").mkdir()
+    (run_dir / "checkpoints").mkdir()
+    (run_dir / "predictions").mkdir()
+    shutil.copy2(training_config_path, run_dir / "configs" / training_config_path.name)
+    shutil.copy2(data_config_path, run_dir / "configs" / data_config_path.name)
+    shutil.copy2(training.model_manifest, run_dir / "configs" / training.model_manifest.name)
+    return []
 
 
 def _curve_svg(history: list[dict[str, Any]]) -> str:
@@ -85,13 +136,13 @@ def run_training(
     resume: Path | None = None,
 ) -> dict[str, Any]:
     """Train, validate, checkpoint, and test one independently versioned task head."""
-    run_dir.mkdir(parents=True, exist_ok=False)
-    (run_dir / "configs").mkdir()
-    (run_dir / "checkpoints").mkdir()
-    (run_dir / "predictions").mkdir()
-    shutil.copy2(training_config_path, run_dir / "configs" / training_config_path.name)
-    shutil.copy2(data_config_path, run_dir / "configs" / data_config_path.name)
-    shutil.copy2(training.model_manifest, run_dir / "configs" / training.model_manifest.name)
+    history = _initialize_run_directory(
+        run_dir,
+        training,
+        training_config_path=training_config_path,
+        data_config_path=data_config_path,
+        resume=resume,
+    )
 
     manifest = load_model_manifest(training.model_manifest)
     model = PetModel(manifest, pretrained_backbone=training.pretrained_backbone).to(device)
@@ -111,8 +162,9 @@ def run_training(
     if device.type == "cuda":
         torch.cuda.reset_peak_memory_stats(device)
 
-    history: list[dict[str, Any]] = []
-    best_loss = float("inf")
+    best_loss = min(
+        (float(row["validation_loss"]) for row in history), default=float("inf")
+    )
     best_path = run_dir / "checkpoints" / "best.pt"
     latest_path = run_dir / "checkpoints" / "latest.pt"
     for epoch in range(start_epoch, training.epochs + 1):
@@ -143,7 +195,7 @@ def run_training(
             )
 
     if not history:
-        raise ValueError("Resume checkpoint already reached the configured epoch count")
+        raise ValueError("No completed epochs are available for final evaluation")
     load_checkpoint(best_path, model, manifest, training.task, map_location=device)
     test_result: EvaluationResult = evaluate(
         model, loaders["test"], training.task, device, amp=training.amp
@@ -158,6 +210,7 @@ def run_training(
     provenance = {
         "created_at": datetime.now(UTC).isoformat(),
         "git_revision": _git_revision(),
+        "container_build_git_revision": os.environ.get("PET_GIT_REVISION"),
         "container_image": os.environ.get("PET_CONTAINER_IMAGE"),
         "container_image_digest": os.environ.get("PET_CONTAINER_IMAGE_DIGEST"),
         "task": training.task,
