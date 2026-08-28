@@ -8,7 +8,21 @@ from torch.utils.data import DataLoader
 
 from pet.models import PetModel, load_model_manifest
 from pet.training.config import load_training_config
-from pet.training.engine import train_one_epoch, trainable_parameters
+from pet.training.engine import task_loss, train_one_epoch, trainable_parameters
+
+
+def test_segmentation_loss_matches_cross_entropy_and_backpropagates() -> None:
+    torch.manual_seed(7)
+    logits = torch.randn(2, 2, 8, 8, requires_grad=True)
+    targets = torch.randint(0, 2, (2, 8, 8))
+
+    actual = task_loss(logits, targets, "segmentation")
+    expected = torch.nn.functional.cross_entropy(logits, targets)
+    actual.backward()
+
+    assert torch.allclose(actual, expected)
+    assert logits.grad is not None
+    assert torch.isfinite(logits.grad).all()
 
 
 @pytest.mark.parametrize(

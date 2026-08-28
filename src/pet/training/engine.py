@@ -44,7 +44,13 @@ def task_loss(logits: Tensor, target: Tensor, task: TaskName) -> Tensor:
     if task == "classification":
         return nn.functional.cross_entropy(logits, target)
     if task == "segmentation":
-        return nn.functional.cross_entropy(logits, target.long())
+        # CUDA's fused NLLLoss2d kernel is nondeterministic. This is mathematically the
+        # same unweighted mean cross-entropy, expressed with deterministic primitives.
+        log_probabilities = nn.functional.log_softmax(logits, dim=1)
+        target_log_probabilities = log_probabilities.gather(
+            dim=1, index=target.long().unsqueeze(1)
+        )
+        return -target_log_probabilities.mean()
     raise ValueError(f"Unsupported task: {task}")
 
 
