@@ -7,7 +7,9 @@ Phase 3 provides two independently tagged images:
 
 Both images pin Python, PyTorch, and direct/transitive Python runtime package versions, run as an
 unprivileged user, and default to a real ResNet-34 forward-pass smoke test. The trainer deliberately
-fails instead of falling back to CPU when GPU access is missing.
+fails instead of falling back to CPU when GPU access is missing. Its default is an overrideable
+Docker command rather than a fixed entrypoint, allowing Runpod to replace it with a batch training
+command at Pod creation time.
 
 ## Local smoke workflow
 
