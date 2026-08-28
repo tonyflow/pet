@@ -6,8 +6,8 @@ from pathlib import Path
 import pytest
 import torch
 
-from pet_mlops.models import PetModel, load_model_manifest
-from pet_mlops.training.checkpoints import load_checkpoint, save_checkpoint
+from pet.models import PetModel, load_model_manifest
+from pet.training.checkpoints import load_checkpoint, save_checkpoint
 
 
 @pytest.fixture(scope="module")

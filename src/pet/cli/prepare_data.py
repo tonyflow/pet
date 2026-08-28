@@ -5,9 +5,9 @@ from pathlib import Path
 
 from torchvision.datasets import OxfordIIITPet
 
-from pet_mlops.config import load_data_config
-from pet_mlops.data.integrity import validate_manifest
-from pet_mlops.data.splits import build_manifests, manifest_sha256
+from pet.config import load_data_config
+from pet.data.integrity import validate_manifest
+from pet.data.splits import build_manifests, manifest_sha256
 
 
 def main() -> None:

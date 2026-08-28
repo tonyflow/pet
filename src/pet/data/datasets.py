@@ -8,7 +8,7 @@ from torch import Tensor
 from torch.utils.data import Dataset
 from torchvision.datasets import OxfordIIITPet
 
-from pet_mlops.data.transforms import PairedTransform
+from pet.data.transforms import PairedTransform
 
 Task = Literal["classification", "segmentation", "multitask"]
 

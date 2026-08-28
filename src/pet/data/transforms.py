@@ -8,7 +8,7 @@ from PIL import Image
 from torchvision.transforms import InterpolationMode
 from torchvision.transforms import functional as F
 
-from pet_mlops.config import TransformConfig
+from pet.config import TransformConfig
 
 
 def trimap_to_foreground(mask: torch.Tensor) -> torch.Tensor:

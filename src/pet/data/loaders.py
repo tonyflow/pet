@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from torch.utils.data import DataLoader
 
-from pet_mlops.config import DataConfig
-from pet_mlops.data.datasets import ManifestPetDataset, Task
-from pet_mlops.data.transforms import PairedTransform
-from pet_mlops.reproducibility import seed_worker, seeded_generator
+from pet.config import DataConfig
+from pet.data.datasets import ManifestPetDataset, Task
+from pet.data.transforms import PairedTransform
+from pet.reproducibility import seed_worker, seeded_generator
 
 
 def build_loaders(config: DataConfig, task: Task) -> dict[str, DataLoader]:

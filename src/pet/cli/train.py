@@ -7,10 +7,10 @@ from pathlib import Path
 
 import torch
 
-from pet_mlops.config import load_data_config
-from pet_mlops.reproducibility import seed_everything
-from pet_mlops.training.config import load_training_config
-from pet_mlops.training.runner import run_training
+from pet.config import load_data_config
+from pet.reproducibility import seed_everything
+from pet.training.config import load_training_config
+from pet.training.runner import run_training
 
 
 def resolve_device(value: str) -> torch.device:

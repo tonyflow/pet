@@ -6,7 +6,7 @@ import torch
 from torch import Tensor, nn
 from torch.nn import functional as F
 
-from pet_mlops.models.backbone import FEATURE_CHANNELS, FEATURE_CONTRACT
+from pet.models.backbone import FEATURE_CHANNELS, FEATURE_CONTRACT
 
 
 class ClassificationHead(nn.Module):

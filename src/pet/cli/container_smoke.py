@@ -8,7 +8,7 @@ from pathlib import Path
 import torch
 import torchvision
 
-from pet_mlops.models import PetModel, load_model_manifest
+from pet.models import PetModel, load_model_manifest
 
 
 def _parser() -> argparse.ArgumentParser:

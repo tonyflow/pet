@@ -28,5 +28,5 @@ RUN useradd --create-home --uid 10001 appuser \
     && chown -R appuser:appuser /app
 
 USER appuser
-ENTRYPOINT ["python", "-m", "pet_mlops.cli.container_smoke"]
+ENTRYPOINT ["python", "-m", "pet.cli.container_smoke"]
 CMD ["--device", "cpu"]

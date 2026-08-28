@@ -7,7 +7,7 @@ from typing import Any
 import torch
 from torch import nn
 
-from pet_mlops.models.manifest import ModelManifest, TaskName, manifests_compatible
+from pet.models.manifest import ModelManifest, TaskName, manifests_compatible
 
 CHECKPOINT_SCHEMA_VERSION = 1
 
@@ -60,7 +60,7 @@ def save_checkpoint(
 def _manifest_from_checkpoint(raw: dict[str, Any]) -> ModelManifest:
     backbone = raw["backbone"]
     heads = raw["heads"]
-    from pet_mlops.models.manifest import BackboneManifest, HeadManifest
+    from pet.models.manifest import BackboneManifest, HeadManifest
 
     return ModelManifest(
         schema_version=int(raw["schema_version"]),

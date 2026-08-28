@@ -5,8 +5,8 @@ from pathlib import Path
 
 import yaml
 
-from pet_mlops.models.manifest import TaskName
-from pet_mlops.models.multitask import TrainMode
+from pet.models.manifest import TaskName
+from pet.models.multitask import TrainMode
 
 
 @dataclass(frozen=True)

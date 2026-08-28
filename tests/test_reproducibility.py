@@ -3,7 +3,7 @@ import random
 import numpy as np
 import torch
 
-from pet_mlops.reproducibility import seed_everything
+from pet.reproducibility import seed_everything
 
 
 def test_seed_everything_repeats_rng_sequences() -> None:

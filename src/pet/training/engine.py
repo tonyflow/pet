@@ -6,7 +6,7 @@ from contextlib import nullcontext
 import torch
 from torch import Tensor, nn
 
-from pet_mlops.models.manifest import TaskName
+from pet.models.manifest import TaskName
 
 
 def task_loss(logits: Tensor, target: Tensor, task: TaskName) -> Tensor:

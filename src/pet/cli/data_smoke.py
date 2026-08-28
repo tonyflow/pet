@@ -5,10 +5,10 @@ from pathlib import Path
 
 import torch
 
-from pet_mlops.config import load_data_config
-from pet_mlops.data.integrity import save_overlay
-from pet_mlops.data.loaders import build_loaders
-from pet_mlops.reproducibility import seed_everything
+from pet.config import load_data_config
+from pet.data.integrity import save_overlay
+from pet.data.loaders import build_loaders
+from pet.reproducibility import seed_everything
 
 
 def main() -> None:

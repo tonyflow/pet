@@ -17,7 +17,7 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.trainer
-    command: ["python", "-m", "pet_mlops.cli.container_smoke", "--device", "cuda"]
+    command: ["python", "-m", "pet.cli.container_smoke", "--device", "cuda"]
     gpus: all
     read_only: true
     tmpfs:

@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from pet_mlops.config import load_data_config
+from pet.config import load_data_config
 
 
 def test_load_data_config() -> None:

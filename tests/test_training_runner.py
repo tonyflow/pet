@@ -6,15 +6,15 @@ from pathlib import Path
 import torch
 from torch import nn
 
-from pet_mlops.config import (
+from pet.config import (
     DataConfig,
     DatasetConfig,
     LoaderConfig,
     ReproducibilityConfig,
     TransformConfig,
 )
-from pet_mlops.training.config import TrainingConfig
-from pet_mlops.training.runner import run_training
+from pet.training.config import TrainingConfig
+from pet.training.runner import run_training
 
 
 class TinyPetModel(nn.Module):
@@ -67,9 +67,9 @@ def test_runner_writes_versioned_artifact_bundle(tmp_path: Path, monkeypatch) ->
     images = torch.randn(2, 3, 4, 4)
     targets = torch.tensor([1, 2])
     batch = (images, targets, ["one", "two"])
-    monkeypatch.setattr("pet_mlops.training.runner.PetModel", TinyPetModel)
+    monkeypatch.setattr("pet.training.runner.PetModel", TinyPetModel)
     monkeypatch.setattr(
-        "pet_mlops.training.runner.build_loaders",
+        "pet.training.runner.build_loaders",
         lambda _config, _task: {"train": [batch], "validation": [batch], "test": [batch]},
     )
     training_path = tmp_path / "training.yaml"
@@ -112,9 +112,9 @@ def test_runner_resumes_after_last_completed_epoch(tmp_path: Path, monkeypatch) 
     images = torch.randn(2, 3, 4, 4)
     targets = torch.tensor([1, 2])
     batch = (images, targets, ["one", "two"])
-    monkeypatch.setattr("pet_mlops.training.runner.PetModel", TinyPetModel)
+    monkeypatch.setattr("pet.training.runner.PetModel", TinyPetModel)
     monkeypatch.setattr(
-        "pet_mlops.training.runner.build_loaders",
+        "pet.training.runner.build_loaders",
         lambda _config, _task: {"train": [batch], "validation": [batch], "test": [batch]},
     )
     training_path = tmp_path / "training.yaml"

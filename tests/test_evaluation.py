@@ -3,7 +3,7 @@ from __future__ import annotations
 import torch
 from torch import nn
 
-from pet_mlops.training.evaluation import evaluate
+from pet.training.evaluation import evaluate
 
 
 class FixedClassificationModel(nn.Module):

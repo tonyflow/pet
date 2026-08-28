@@ -13,13 +13,13 @@ from typing import Any
 
 import torch
 
-from pet_mlops.config import DataConfig
-from pet_mlops.data.loaders import build_loaders
-from pet_mlops.models import PetModel, load_model_manifest
-from pet_mlops.training.checkpoints import load_checkpoint, save_checkpoint
-from pet_mlops.training.config import TrainingConfig
-from pet_mlops.training.engine import train_one_epoch, trainable_parameters
-from pet_mlops.training.evaluation import EvaluationResult, evaluate
+from pet.config import DataConfig
+from pet.data.loaders import build_loaders
+from pet.models import PetModel, load_model_manifest
+from pet.training.checkpoints import load_checkpoint, save_checkpoint
+from pet.training.config import TrainingConfig
+from pet.training.engine import train_one_epoch, trainable_parameters
+from pet.training.evaluation import EvaluationResult, evaluate
 
 
 def _write_json(path: Path, value: object) -> None:

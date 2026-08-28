@@ -4,8 +4,8 @@ import numpy as np
 import torch
 from PIL import Image
 
-from pet_mlops.config import TransformConfig
-from pet_mlops.data.transforms import PairedTransform
+from pet.config import TransformConfig
+from pet.data.transforms import PairedTransform
 
 
 def _config() -> TransformConfig:

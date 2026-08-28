@@ -2,7 +2,7 @@ from pathlib import Path
 
 import polars as pl
 
-from pet_mlops.data.splits import build_manifests, manifest_sha256
+from pet.data.splits import build_manifests, manifest_sha256
 
 
 def _write_official_lists(root: Path) -> None:

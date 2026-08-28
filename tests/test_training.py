@@ -6,9 +6,9 @@ import pytest
 import torch
 from torch.utils.data import DataLoader
 
-from pet_mlops.models import PetModel, load_model_manifest
-from pet_mlops.training.config import load_training_config
-from pet_mlops.training.engine import train_one_epoch, trainable_parameters
+from pet.models import PetModel, load_model_manifest
+from pet.training.config import load_training_config
+from pet.training.engine import train_one_epoch, trainable_parameters
 
 
 @pytest.mark.parametrize(

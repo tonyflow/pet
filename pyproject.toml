@@ -26,13 +26,13 @@ dev = [
 ]
 
 [project.scripts]
-pet-prepare-data = "pet_mlops.cli.prepare_data:main"
-pet-data-smoke = "pet_mlops.cli.data_smoke:main"
-pet-container-smoke = "pet_mlops.cli.container_smoke:main"
-pet-train = "pet_mlops.cli.train:main"
+pet-prepare-data = "pet.cli.prepare_data:main"
+pet-data-smoke = "pet.cli.data_smoke:main"
+pet-container-smoke = "pet.cli.container_smoke:main"
+pet-train = "pet.cli.train:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/pet_mlops"]
+packages = ["src/pet"]
 
 [tool.pytest.ini_options]
 addopts = "-q"

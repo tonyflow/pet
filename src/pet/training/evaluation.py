@@ -8,8 +8,8 @@ from time import perf_counter
 import torch
 from torch import Tensor, nn
 
-from pet_mlops.models.manifest import TaskName
-from pet_mlops.training.engine import task_loss
+from pet.models.manifest import TaskName
+from pet.training.engine import task_loss
 
 
 @dataclass(frozen=True)

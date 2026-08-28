@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 import torch
 
-from pet_mlops.cli.container_smoke import resolve_device, run_smoke
+from pet.cli.container_smoke import resolve_device, run_smoke
 
 
 def test_cpu_container_smoke_runs_both_heads() -> None:

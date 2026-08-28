@@ -4,9 +4,9 @@ from typing import Literal
 
 from torch import Tensor, nn
 
-from pet_mlops.models.backbone import ResNet34Backbone
-from pet_mlops.models.heads import ClassificationHead, SegmentationHead
-from pet_mlops.models.manifest import ModelManifest
+from pet.models.backbone import ResNet34Backbone
+from pet.models.heads import ClassificationHead, SegmentationHead
+from pet.models.manifest import ModelManifest
 
 TrainMode = Literal["frozen_backbone", "fine_tune"]
 
