@@ -21,7 +21,7 @@ class TrainingConfig:
     weight_decay: float
     amp: bool
     pretrained_backbone: bool
-    model_manifest: Path
+    model_manifest: str
 
     def validate(self) -> None:
         """Validate supported choices and numeric constraints.
@@ -69,7 +69,7 @@ def load_training_config(path: str | Path) -> TrainingConfig:
         weight_decay=float(raw["weight_decay"]),
         amp=bool(raw["amp"]),
         pretrained_backbone=bool(raw["pretrained_backbone"]),
-        model_manifest=Path(raw["model_manifest"]),
+        model_manifest=str(raw["model_manifest"]),
     )
     config.validate()
     return config

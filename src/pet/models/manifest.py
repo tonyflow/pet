@@ -1,16 +1,23 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from collections.abc import Mapping
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any, Literal
 
 import torch
-import yaml
 from torch import Tensor
 
 TaskName = Literal["classification", "segmentation"]
+
+
+def contract_fingerprint(contract: FeatureContract | HeadContract) -> str:
+    """Return a stable SHA-256 fingerprint of a canonical contract snapshot."""
+    payload = json.dumps(
+        contract.to_dict(), sort_keys=True, separators=(",", ":"), ensure_ascii=True
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -248,7 +255,100 @@ class BackboneManifest:
     feature_contract: str
     feature_contract_definition: FeatureContract | None = None
     feature_contract_sha256: str | None = None
-    feature_contract_path: Path | None = None
+
+
+@dataclass(frozen=True)
+class HeadContract:
+    """Explicit feature-input and logit-output interface for one task head."""
+
+    schema_version: int
+    id: str
+    kind: str
+    description: str
+    feature_contract: str
+    consumed_keys: tuple[str, ...]
+    output_name: str
+    output_rank: int
+    output_layout: str
+    num_classes: int
+    spatial_policy: str | None
+    semantics: str
+
+    def validate(self, task: TaskName) -> None:
+        if self.schema_version != 1 or self.kind != f"{task}-head":
+            raise ValueError(f"Invalid {task} head contract schema or kind")
+        expected_rank = 2 if task == "classification" else 4
+        expected_layout = "NC" if task == "classification" else "NCHW"
+        if self.output_rank != expected_rank or self.output_layout != expected_layout:
+            raise ValueError(f"Invalid {task} head output rank or layout")
+        if not self.consumed_keys or self.num_classes < 2:
+            raise ValueError(f"Invalid {task} head feature keys or class count")
+        if task == "segmentation" and self.spatial_policy != "same_as_original_image":
+            raise ValueError("Segmentation output must match the original image size")
+
+    def validate_tensors(
+        self,
+        features: Mapping[str, Tensor],
+        output: Tensor,
+        image_shape: tuple[int, ...],
+    ) -> None:
+        missing = set(self.consumed_keys) - set(features)
+        if missing:
+            raise ValueError(f"Head contract {self.id} is missing features: {sorted(missing)}")
+        expected = (image_shape[0], self.num_classes)
+        if self.output_rank == 4:
+            expected += (image_shape[-2], image_shape[-1])
+        if tuple(output.shape) != expected:
+            raise ValueError(
+                f"Head contract {self.id} expected output shape {expected}, "
+                f"found {tuple(output.shape)}"
+            )
+        reference = features[self.consumed_keys[0]]
+        if output.device != reference.device:
+            raise ValueError(
+                f"Head output is on {output.device}, but its features are on {reference.device}"
+            )
+        if not torch.is_floating_point(output):
+            raise ValueError("Head output must use a floating-point dtype")
+
+    def to_dict(self) -> dict[str, Any]:
+        dimensions: dict[str, Any] = {
+            "batch": "same_as_input",
+            "classes": self.num_classes,
+        }
+        input_spec: dict[str, Any] = {
+            "container": "mapping",
+            "feature_contract": self.feature_contract,
+            "consumed_keys": list(self.consumed_keys),
+        }
+        if self.spatial_policy is not None:
+            input_spec["context"] = {
+                "original_image_size": {
+                    "dimensions": ["height", "width"],
+                    "source": "model_input",
+                }
+            }
+            dimensions["height"] = self.spatial_policy
+            dimensions["width"] = self.spatial_policy
+        return {
+            "schema_version": self.schema_version,
+            "contract": {
+                "id": self.id,
+                "kind": self.kind,
+                "description": self.description,
+            },
+            "input": input_spec,
+            "output": {
+                "name": self.output_name,
+                "container": "torch.Tensor",
+                "rank": self.output_rank,
+                "layout": self.output_layout,
+                "dimensions": dimensions,
+                "dtype": "follows_model_compute_dtype",
+                "device": "same_as_input",
+                "semantics": self.semantics,
+            },
+        }
 
 
 @dataclass(frozen=True)
@@ -258,6 +358,9 @@ class HeadManifest:
     version: str
     requires_feature_contract: str
     num_classes: int
+    interface_contract: str | None = None
+    interface_contract_definition: HeadContract | None = None
+    interface_contract_sha256: str | None = None
 
 
 @dataclass(frozen=True)
@@ -285,6 +388,11 @@ class ModelManifest:
                     f"Feature contract reference {self.backbone.feature_contract!r} does not "
                     f"match definition {contract.id!r}"
                 )
+            if (
+                self.backbone.feature_contract_sha256 is not None
+                and contract_fingerprint(contract) != self.backbone.feature_contract_sha256
+            ):
+                raise ValueError("Backbone feature contract fingerprint does not match")
         tasks = (task,) if task else ("classification", "segmentation")
         for name in tasks:
             head = self.head(name)
@@ -296,6 +404,22 @@ class ModelManifest:
                 )
             if head.num_classes < 2:
                 raise ValueError(f"{name} num_classes must be at least 2")
+            head_contract = head.interface_contract_definition
+            if head_contract is not None:
+                head_contract.validate(name)
+                if head.interface_contract != head_contract.id:
+                    raise ValueError(f"{name} head contract ID does not match its definition")
+                if head_contract.feature_contract != head.requires_feature_contract:
+                    raise ValueError(f"{name} head contract requires a different feature contract")
+                if head_contract.num_classes != head.num_classes:
+                    raise ValueError(
+                        f"{name} head contract class count does not match its manifest"
+                    )
+                if (
+                    head.interface_contract_sha256 is not None
+                    and contract_fingerprint(head_contract) != head.interface_contract_sha256
+                ):
+                    raise ValueError(f"{name} head contract fingerprint does not match")
 
     def to_dict(self) -> dict[str, Any]:
         backbone: dict[str, Any] = {
@@ -309,21 +433,27 @@ class ModelManifest:
             )
         if self.backbone.feature_contract_sha256 is not None:
             backbone["feature_contract_sha256"] = self.backbone.feature_contract_sha256
+        heads: dict[str, dict[str, Any]] = {}
+        for task in ("classification", "segmentation"):
+            head = self.head(task)
+            serialized: dict[str, Any] = {
+                "version": head.version,
+                "requires_feature_contract": head.requires_feature_contract,
+                "num_classes": head.num_classes,
+            }
+            if head.interface_contract is not None:
+                serialized["interface_contract"] = head.interface_contract
+            if head.interface_contract_definition is not None:
+                serialized["interface_contract_definition"] = (
+                    head.interface_contract_definition.to_dict()
+                )
+            if head.interface_contract_sha256 is not None:
+                serialized["interface_contract_sha256"] = head.interface_contract_sha256
+            heads[task] = serialized
         return {
             "schema_version": self.schema_version,
             "backbone": backbone,
-            "heads": {
-                "classification": {
-                    "version": self.classification.version,
-                    "requires_feature_contract": self.classification.requires_feature_contract,
-                    "num_classes": self.classification.num_classes,
-                },
-                "segmentation": {
-                    "version": self.segmentation.version,
-                    "requires_feature_contract": self.segmentation.requires_feature_contract,
-                    "num_classes": self.segmentation.num_classes,
-                },
-            },
+            "heads": heads,
         }
 
 
@@ -483,34 +613,78 @@ def _load_legacy_contract(raw: Mapping[str, Any]) -> FeatureContract:
     return contract
 
 
-def model_manifest_from_dict(
-    raw: Mapping[str, Any], *, base_dir: Path | None = None, require_contract: bool = False
-) -> ModelManifest:
-    """Build a model manifest from YAML or checkpoint data."""
+def _load_head_contract(raw: Mapping[str, Any], task: TaskName) -> HeadContract:
+    contract_spec = raw["contract"]
+    input_spec = raw["input"]
+    output_spec = raw["output"]
+    if input_spec.get("container") != "mapping":
+        raise ValueError(f"{task} head input must be a feature mapping")
+    expected_output = {
+        "container": "torch.Tensor",
+        "dtype": "follows_model_compute_dtype",
+        "device": "same_as_input",
+    }
+    for field, expected in expected_output.items():
+        if output_spec.get(field) != expected:
+            raise ValueError(f"Unsupported {task} head output {field}")
+    dimensions = output_spec["dimensions"]
+    if dimensions.get("batch") != "same_as_input":
+        raise ValueError(f"{task} head must preserve the batch dimension")
+    spatial_policy = None
+    if task == "segmentation":
+        if dimensions.get("height") != dimensions.get("width"):
+            raise ValueError("Segmentation height and width policies must match")
+        spatial_policy = str(dimensions["height"])
+        context = input_spec.get("context", {}).get("original_image_size", {})
+        if context.get("source") != "model_input":
+            raise ValueError("Segmentation original image size must come from the model input")
+    contract = HeadContract(
+        schema_version=int(raw["schema_version"]),
+        id=str(contract_spec["id"]),
+        kind=str(contract_spec["kind"]),
+        description=str(contract_spec["description"]),
+        feature_contract=str(input_spec["feature_contract"]),
+        consumed_keys=tuple(str(key) for key in input_spec["consumed_keys"]),
+        output_name=str(output_spec["name"]),
+        output_rank=int(output_spec["rank"]),
+        output_layout=str(output_spec["layout"]),
+        num_classes=int(dimensions["classes"]),
+        spatial_policy=spatial_policy,
+        semantics=str(output_spec["semantics"]),
+    )
+    contract.validate(task)
+    return contract
+
+
+def _load_head_manifest(
+    raw: Mapping[str, Any],
+    task: TaskName,
+) -> HeadManifest:
+    definition = raw.get("interface_contract_definition")
+    digest = raw.get("interface_contract_sha256")
+    contract: HeadContract | None = None
+    if definition is not None:
+        contract = _load_head_contract(definition, task)
+    return HeadManifest(
+        version=str(raw["version"]),
+        requires_feature_contract=str(raw["requires_feature_contract"]),
+        num_classes=int(raw["num_classes"]),
+        interface_contract=(
+            str(raw["interface_contract"]) if raw.get("interface_contract") else None
+        ),
+        interface_contract_definition=contract,
+        interface_contract_sha256=(str(digest) if digest else None),
+    )
+
+
+def model_manifest_from_dict(raw: Mapping[str, Any]) -> ModelManifest:
+    """Build a model manifest from a canonical checkpoint snapshot."""
     raw_backbone = raw["backbone"]
     contract_definition = raw_backbone.get("feature_contract_definition")
     contract_sha256 = raw_backbone.get("feature_contract_sha256")
     contract: FeatureContract | None = None
-    contract_path: Path | None = None
     if contract_definition is not None:
         contract = _load_contract(contract_definition)
-    elif "feature_contract_file" in raw_backbone:
-        if base_dir is None:
-            raise ValueError("A base directory is required to resolve feature_contract_file")
-        contract_path = (base_dir / raw_backbone["feature_contract_file"]).resolve()
-        contract_bytes = contract_path.read_bytes()
-        actual_sha256 = hashlib.sha256(contract_bytes).hexdigest()
-        if actual_sha256 != contract_sha256:
-            raise ValueError(
-                f"Feature contract digest mismatch: expected {contract_sha256}, "
-                f"found {actual_sha256}"
-            )
-        contract_raw = yaml.safe_load(contract_bytes)
-        if not isinstance(contract_raw, dict):
-            raise TypeError("Feature contract must be a YAML mapping")
-        contract = _load_contract(contract_raw)
-    elif require_contract:
-        raise ValueError("Model manifest must reference an explicit feature contract file")
 
     heads = raw["heads"]
     manifest = ModelManifest(
@@ -521,22 +695,27 @@ def model_manifest_from_dict(
             feature_contract=str(raw_backbone["feature_contract"]),
             feature_contract_definition=contract,
             feature_contract_sha256=(str(contract_sha256) if contract_sha256 else None),
-            feature_contract_path=contract_path,
         ),
-        classification=HeadManifest(**heads["classification"]),
-        segmentation=HeadManifest(**heads["segmentation"]),
+        classification=_load_head_manifest(heads["classification"], "classification"),
+        segmentation=_load_head_manifest(heads["segmentation"], "segmentation"),
     )
     manifest.validate()
     return manifest
 
 
-def load_model_manifest(path: str | Path) -> ModelManifest:
-    """Load a model manifest and resolve its explicit feature contract."""
-    manifest_path = Path(path)
-    raw = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
-    if not isinstance(raw, dict):
-        raise TypeError("Model manifest must be a YAML mapping")
-    return model_manifest_from_dict(raw, base_dir=manifest_path.parent, require_contract=True)
+def load_model_manifest(manifest_id: str) -> ModelManifest:
+    """Resolve and validate a versioned typed model manifest by stable ID."""
+    from pet.models.contracts import MODEL_MANIFESTS
+
+    try:
+        manifest = MODEL_MANIFESTS[manifest_id]
+    except KeyError as error:
+        available = ", ".join(sorted(MODEL_MANIFESTS))
+        raise ValueError(
+            f"Unknown model manifest {manifest_id!r}; available manifests: {available}"
+        ) from error
+    manifest.validate()
+    return manifest
 
 
 def manifests_compatible(
@@ -562,6 +741,13 @@ def manifests_compatible(
         fields["backbone.feature_contract_definition"] = (
             expected.backbone.feature_contract_definition.to_dict(),
             actual.backbone.feature_contract_definition.to_dict(),
+        )
+    expected_head_contract = expected.head(task).interface_contract_definition
+    actual_head_contract = actual.head(task).interface_contract_definition
+    if expected_head_contract is not None and actual_head_contract is not None:
+        fields["head.interface_contract_definition"] = (
+            expected_head_contract.to_dict(),
+            actual_head_contract.to_dict(),
         )
     mismatches = [
         f"{name}: expected {left!r}, found {right!r}"

@@ -34,7 +34,7 @@ def test_segmentation_loss_matches_cross_entropy_and_backpropagates() -> None:
 )
 def test_cpu_smoke_training_for_each_head(task, target) -> None:
     torch.manual_seed(7)
-    manifest = load_model_manifest(Path("configs/model/resnet34_v1.yaml"))
+    manifest = load_model_manifest("resnet34-v1")
     model = PetModel(manifest)
     model.set_train_mode("frozen_backbone")
     images = torch.randn(2, 3, 32, 32)

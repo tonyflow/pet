@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
-
 import torch
 from torch import Tensor, nn
 from torch.nn import functional as F
 
-from pet.models.backbone import FEATURE_CHANNELS, FEATURE_CONTRACT
+from pet.models.backbone import FEATURE_CHANNELS, FEATURE_CONTRACT, BackboneFeatures
 
 
 class ClassificationHead(nn.Module):
@@ -18,6 +16,7 @@ class ClassificationHead(nn.Module):
     """
 
     requires_feature_contract = FEATURE_CONTRACT
+    consumed_feature_keys = ("layer4",)
 
     def __init__(self, num_classes: int, dropout: float = 0.2) -> None:
         """Initialize pooling, regularization, and the output projection.
@@ -32,7 +31,7 @@ class ClassificationHead(nn.Module):
             nn.Flatten(), nn.Dropout(dropout), nn.Linear(512, num_classes)
         )
 
-    def forward(self, features: Mapping[str, Tensor]) -> Tensor:
+    def forward(self, features: BackboneFeatures) -> Tensor:
         """Produce one vector of unnormalized class scores per image.
 
         Args:
@@ -77,6 +76,7 @@ class SegmentationHead(nn.Module):
     """
 
     requires_feature_contract = FEATURE_CONTRACT
+    consumed_feature_keys = ("stem", "layer1", "layer2", "layer3", "layer4")
 
     def __init__(self, num_classes: int) -> None:
         """Initialize the skip-connected decoder and output projection.
@@ -91,7 +91,7 @@ class SegmentationHead(nn.Module):
         self.decode0 = _DecoderBlock(64, FEATURE_CHANNELS["stem"], 32)
         self.output = nn.Conv2d(32, num_classes, kernel_size=1)
 
-    def forward(self, features: Mapping[str, Tensor], output_size: tuple[int, int]) -> Tensor:
+    def forward(self, features: BackboneFeatures, output_size: tuple[int, int]) -> Tensor:
         """Decode multi-resolution features into full-size segmentation scores.
 
         Args:

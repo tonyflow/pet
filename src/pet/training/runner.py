@@ -91,21 +91,11 @@ def _initialize_run_directory(
 
     run_dir.mkdir(parents=True, exist_ok=False)
     (run_dir / "configs").mkdir()
-    (run_dir / "configs" / "model").mkdir()
-    (run_dir / "configs" / "interfaces").mkdir()
     (run_dir / "checkpoints").mkdir()
     (run_dir / "predictions").mkdir()
     shutil.copy2(training_config_path, run_dir / "configs" / training_config_path.name)
     shutil.copy2(data_config_path, run_dir / "configs" / data_config_path.name)
-    shutil.copy2(
-        training.model_manifest, run_dir / "configs" / "model" / training.model_manifest.name
-    )
-    if manifest.backbone.feature_contract_path is None:
-        raise ValueError("Model manifest does not resolve an explicit feature contract file")
-    shutil.copy2(
-        manifest.backbone.feature_contract_path,
-        run_dir / "configs" / "interfaces" / manifest.backbone.feature_contract_path.name,
-    )
+    _write_json(run_dir / "configs" / "model_manifest.json", manifest.to_dict())
     return []
 
 

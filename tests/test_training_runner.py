@@ -85,7 +85,7 @@ def test_runner_writes_versioned_artifact_bundle(tmp_path: Path, monkeypatch) ->
         weight_decay=0,
         amp=False,
         pretrained_backbone=False,
-        model_manifest=Path("configs/model/resnet34_v1.yaml"),
+        model_manifest="resnet34-v1",
     )
     run_dir = tmp_path / "run"
 
@@ -130,7 +130,7 @@ def test_runner_resumes_after_last_completed_epoch(tmp_path: Path, monkeypatch) 
         weight_decay=0,
         amp=False,
         pretrained_backbone=False,
-        model_manifest=Path("configs/model/resnet34_v1.yaml"),
+        model_manifest="resnet34-v1",
     )
     first_run = tmp_path / "first"
     run_training(
@@ -180,7 +180,7 @@ def test_runner_finalizes_completed_existing_run(tmp_path: Path, monkeypatch) ->
         weight_decay=0,
         amp=False,
         pretrained_backbone=False,
-        model_manifest=Path("configs/model/resnet34_v1.yaml"),
+        model_manifest="resnet34-v1",
     )
     run_dir = tmp_path / "run"
     data = _data_config(tmp_path)

@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import json
 import platform
-from pathlib import Path
 
 import torch
 import torchvision
@@ -23,8 +22,7 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--model-manifest",
-        type=Path,
-        default=Path("configs/model/resnet34_v1.yaml"),
+        default="resnet34-v1",
     )
     parser.add_argument("--image-size", type=int, default=32)
     return parser
@@ -42,7 +40,7 @@ def resolve_device(requested: str) -> torch.device:
     return torch.device(requested)
 
 
-def run_smoke(model_manifest: Path, requested_device: str, image_size: int) -> dict[str, object]:
+def run_smoke(model_manifest: str, requested_device: str, image_size: int) -> dict[str, object]:
     """Construct the versioned model and execute both independently versioned heads."""
     if image_size < 32:
         raise ValueError("image-size must be at least 32 for the ResNet-34 backbone")
@@ -80,4 +78,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

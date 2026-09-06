@@ -9,6 +9,7 @@ from pet.models.heads import ClassificationHead, SegmentationHead
 from pet.models.manifest import ModelManifest
 
 TrainMode = Literal["frozen_backbone", "fine_tune"]
+ContractValidationMode = Literal["first_forward", "every_forward"]
 
 
 class PetModel(nn.Module):
@@ -22,12 +23,19 @@ class PetModel(nn.Module):
         ValueError: If the manifest requests an unsupported feature contract.
     """
 
-    def __init__(self, manifest: ModelManifest, pretrained_backbone: bool = False) -> None:
+    def __init__(
+        self,
+        manifest: ModelManifest,
+        pretrained_backbone: bool = False,
+        contract_validation: ContractValidationMode = "first_forward",
+    ) -> None:
         """Initialize and validate the shared backbone and both heads.
 
         Args:
             manifest: Compatibility metadata defining the component versions and outputs.
             pretrained_backbone: Whether to start from ImageNet backbone weights.
+            contract_validation: Validate tensors on the first forward pass only, or on
+                every forward pass for development and tests.
 
         Raises:
             ValueError: If the manifest is invalid or requests an unsupported contract.
@@ -41,11 +49,27 @@ class PetModel(nn.Module):
             )
         if manifest.backbone.feature_contract_definition is None:
             raise ValueError("The model requires a resolved, explicit feature contract")
+        if contract_validation not in {"first_forward", "every_forward"}:
+            raise ValueError(f"Unsupported contract validation mode: {contract_validation}")
         self.manifest = manifest
         self.feature_contract = manifest.backbone.feature_contract_definition
+        self.contract_validation = contract_validation
+        self._feature_contract_validated = False
+        self._validated_head_contracts: set[str] = set()
         self.backbone = ResNet34Backbone(pretrained=pretrained_backbone)
         self.classification = ClassificationHead(manifest.classification.num_classes)
         self.segmentation = SegmentationHead(manifest.segmentation.num_classes)
+        for task in ("classification", "segmentation"):
+            head_manifest = manifest.head(task)
+            contract = head_manifest.interface_contract_definition
+            if contract is None:
+                raise ValueError(f"The {task} head requires a resolved interface contract")
+            implementation = getattr(self, task)
+            if contract.consumed_keys != implementation.consumed_feature_keys:
+                raise ValueError(
+                    f"{task} contract consumes {contract.consumed_keys}, but the implementation "
+                    f"consumes {implementation.consumed_feature_keys}"
+                )
 
     def set_train_mode(self, mode: TrainMode) -> None:
         """Freeze or unfreeze all shared-backbone parameters.
@@ -95,9 +119,25 @@ class PetModel(nn.Module):
         if image.device != model_device:
             raise ValueError(f"Input is on {image.device}, but model is on {model_device}")
         features = self.backbone(image)
-        self.feature_contract.validate_tensors(image, features)
+        if (
+            self.contract_validation == "every_forward"
+            or not self._feature_contract_validated
+        ):
+            self.feature_contract.validate_tensors(image, features)
+            self._feature_contract_validated = True
         if task == "classification":
-            return self.classification(features)
-        if task == "segmentation":
-            return self.segmentation(features, image.shape[-2:])
-        raise ValueError(f"Unsupported task: {task}")
+            output = self.classification(features)
+        elif task == "segmentation":
+            output = self.segmentation(features, image.shape[-2:])
+        else:
+            raise ValueError(f"Unsupported task: {task}")
+        if (
+            self.contract_validation == "every_forward"
+            or task not in self._validated_head_contracts
+        ):
+            contract = self.manifest.head(task).interface_contract_definition
+            if contract is None:  # Guarded during construction; retained for type narrowing.
+                raise RuntimeError(f"Missing resolved {task} head contract")
+            contract.validate_tensors(features, output, tuple(image.shape))
+            self._validated_head_contracts.add(task)
+        return output

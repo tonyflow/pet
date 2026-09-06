@@ -6,4 +6,4 @@ learning_rate: 0.0001
 weight_decay: 0.0001
 amp: true
 pretrained_backbone: true
-model_manifest: /app/configs/model/resnet34_v1.yaml
+model_manifest: resnet34-v1

@@ -7,13 +7,13 @@ import pytest
 import torch
 
 from pet.models import PetModel, load_model_manifest
-from pet.models.manifest import manifests_compatible, model_manifest_from_dict
+from pet.models.manifest import contract_fingerprint, manifests_compatible, model_manifest_from_dict
 from pet.training.checkpoints import load_checkpoint, save_checkpoint
 
 
 @pytest.fixture(scope="module")
 def manifest():
-    return load_model_manifest(Path("configs/model/resnet34_v1.yaml"))
+    return load_model_manifest("resnet34-v1")
 
 
 def test_backbone_and_heads_follow_shape_contract(manifest) -> None:
@@ -24,6 +24,48 @@ def test_backbone_and_heads_follow_shape_contract(manifest) -> None:
         segmentation = model(image, "segmentation")
     assert classification.shape == (2, 37)
     assert segmentation.shape == (2, 2, 32, 32)
+
+
+def test_contract_is_validated_only_on_first_forward_by_default(manifest) -> None:
+    model = PetModel(manifest).eval()
+    image = torch.randn(1, 3, 32, 32)
+    with torch.no_grad():
+        model(image, "classification")
+
+    original_forward = model.backbone.forward
+
+    def forward_with_extra_output(value):
+        features = original_forward(value)
+        features["unexpected"] = features["stem"]
+        return features
+
+    model.backbone.forward = forward_with_extra_output
+    with torch.no_grad():
+        assert model(image, "classification").shape == (1, 37)
+
+
+def test_contract_can_be_validated_on_every_forward(manifest) -> None:
+    model = PetModel(manifest, contract_validation="every_forward").eval()
+    image = torch.randn(1, 3, 32, 32)
+    with torch.no_grad():
+        model(image, "classification")
+
+    original_forward = model.backbone.forward
+
+    def forward_with_extra_output(value):
+        features = original_forward(value)
+        features["unexpected"] = features["stem"]
+        return features
+
+    model.backbone.forward = forward_with_extra_output
+    with pytest.raises(ValueError, match="unexpected"):
+        with torch.no_grad():
+            model(image, "classification")
+
+
+def test_contract_validation_mode_is_checked(manifest) -> None:
+    with pytest.raises(ValueError, match="Unsupported contract validation mode"):
+        PetModel(manifest, contract_validation="sometimes")
 
 
 def test_manifest_resolves_explicit_feature_contract(manifest) -> None:
@@ -47,6 +89,32 @@ def test_manifest_resolves_explicit_feature_contract(manifest) -> None:
     }
 
 
+def test_manifest_resolves_explicit_head_contracts(manifest) -> None:
+    classification = manifest.classification.interface_contract_definition
+    segmentation = manifest.segmentation.interface_contract_definition
+    assert classification is not None
+    assert classification.consumed_keys == ("layer4",)
+    assert classification.output_layout == "NC"
+    assert classification.num_classes == 37
+    assert segmentation is not None
+    assert segmentation.consumed_keys == ("stem", "layer1", "layer2", "layer3", "layer4")
+    assert segmentation.output_layout == "NCHW"
+    assert segmentation.spatial_policy == "same_as_original_image"
+
+
+def test_head_contract_rejects_wrong_output_shape(manifest) -> None:
+    contract = manifest.classification.interface_contract_definition
+    feature_contract = manifest.backbone.feature_contract_definition
+    assert contract is not None
+    assert feature_contract is not None
+    features = {
+        name: torch.randn(2, spec.channels, 32 // spec.spatial_stride, 32 // spec.spatial_stride)
+        for name, spec in feature_contract.outputs.items()
+    }
+    with pytest.raises(ValueError, match="expected output shape"):
+        contract.validate_tensors(features, torch.randn(2, 36), (2, 3, 32, 32))
+
+
 def test_contract_rejects_incompatible_preprocessing(manifest) -> None:
     contract = manifest.backbone.feature_contract_definition
     assert contract is not None
@@ -54,18 +122,17 @@ def test_contract_rejects_incompatible_preprocessing(manifest) -> None:
         contract.validate_preprocessing((0.0, 0.0, 0.0), (1.0, 1.0, 1.0))
 
 
-def test_manifest_rejects_changed_contract_file(tmp_path: Path) -> None:
-    model_dir = tmp_path / "model"
-    interface_dir = tmp_path / "interfaces"
-    model_dir.mkdir()
-    interface_dir.mkdir()
-    model_path = model_dir / "resnet34_v1.yaml"
-    contract_path = interface_dir / "resnet34-pyramid-v1.yaml"
-    model_path.write_bytes(Path("configs/model/resnet34_v1.yaml").read_bytes())
-    contract_path.write_text("schema_version: 1\n", encoding="utf-8")
+def test_contract_fingerprint_is_stable_and_content_sensitive(manifest) -> None:
+    contract = manifest.backbone.feature_contract_definition
+    assert contract is not None
+    assert contract_fingerprint(contract) == manifest.backbone.feature_contract_sha256
+    changed = replace(contract, minimum_height=64)
+    assert contract_fingerprint(changed) != contract_fingerprint(contract)
 
-    with pytest.raises(ValueError, match="digest mismatch"):
-        load_model_manifest(model_path)
+
+def test_unknown_typed_manifest_is_rejected() -> None:
+    with pytest.raises(ValueError, match="Unknown model manifest"):
+        load_model_manifest("missing-v1")
 
 
 def test_explicit_contract_rejects_wrong_feature_shape(manifest) -> None:
@@ -138,6 +205,10 @@ def test_legacy_string_only_checkpoint_manifest_remains_compatible(manifest) -> 
     legacy_raw = manifest.to_dict()
     legacy_raw["backbone"].pop("feature_contract_definition")
     legacy_raw["backbone"].pop("feature_contract_sha256")
+    for head in legacy_raw["heads"].values():
+        head.pop("interface_contract")
+        head.pop("interface_contract_definition")
+        head.pop("interface_contract_sha256")
     legacy = model_manifest_from_dict(legacy_raw)
 
     manifests_compatible(manifest, legacy, "classification")

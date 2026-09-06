@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from typing import TypedDict
 
 from torch import Tensor, nn
 from torchvision.models import ResNet34_Weights, resnet34
@@ -13,6 +14,16 @@ FEATURE_CHANNELS: Mapping[str, int] = {
     "layer3": 256,
     "layer4": 512,
 }
+
+
+class BackboneFeatures(TypedDict):
+    """Statically typed keys returned by the version-1 backbone interface."""
+
+    stem: Tensor
+    layer1: Tensor
+    layer2: Tensor
+    layer3: Tensor
+    layer4: Tensor
 
 
 class ResNet34Backbone(nn.Module):
@@ -41,7 +52,7 @@ class ResNet34Backbone(nn.Module):
         self.layer3 = model.layer3
         self.layer4 = model.layer4
 
-    def forward(self, image: Tensor) -> dict[str, Tensor]:
+    def forward(self, image: Tensor) -> BackboneFeatures:
         """Extract spatial features at each ResNet resolution level.
 
         Args:

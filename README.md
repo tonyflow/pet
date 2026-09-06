@@ -34,13 +34,22 @@ See [docs/reproducibility.md](docs/reproducibility.md) for controls and limitati
 
 ## Versioned models and training
 
-`configs/model/resnet34_v1.yaml` is the compatibility boundary between the shared ResNet-34
-feature pyramid and the independently versioned classification and segmentation heads. It pins
-`configs/interfaces/resnet34-pyramid-v1.yaml` by SHA-256. That contract explicitly lists the
-input tensor and every output tensor's key, channels, spatial stride, layout, rank, dtype, and
-device relationship. A model or checkpoint is rejected when its backbone version, resolved
-contract, selected head version, or class count differs from the expected manifest. Changing the
-other task's head version does not invalidate a checkpoint.
+`src/pet/models/contracts/` is the typed compatibility package for the shared ResNet-34
+feature pyramid and the independently versioned classification and segmentation heads. Training
+configuration selects the public registry using the stable `resnet34-v1` ID. Concrete definitions
+are grouped by model version, such as `contracts/v1/resnet34.py`. Each contract receives a SHA-256
+fingerprint of its canonical dictionary representation. A model or checkpoint is rejected when
+its backbone version, resolved contract, selected head version, or class count differs from the
+expected manifest. Changing the other task's head version does not invalidate a checkpoint.
+
+Backbone tensors are checked against the resolved contract on the first forward pass. Construct
+`PetModel` with `contract_validation="every_forward"` to repeat the checks on every batch during
+development or testing.
+
+The classification and segmentation heads have separate typed contracts in the same registry.
+They define which backbone features each head consumes and the exact logit shape, layout, dtype,
+device, spatial policy, and semantics that it produces. Checkpoints and run artifacts embed
+canonical data snapshots of the Python contracts for portability.
 
 The model supports `frozen_backbone` and `fine_tune` training modes. In frozen mode the encoder
 parameters and batch-normalization statistics stay fixed; in fine-tuning mode the complete model
