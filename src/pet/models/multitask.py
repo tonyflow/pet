@@ -39,7 +39,10 @@ class PetModel(nn.Module):
                 f"Manifest contract {manifest.backbone.feature_contract!r} is not implemented; "
                 f"expected {ResNet34Backbone.feature_contract!r}"
             )
+        if manifest.backbone.feature_contract_definition is None:
+            raise ValueError("The model requires a resolved, explicit feature contract")
         self.manifest = manifest
+        self.feature_contract = manifest.backbone.feature_contract_definition
         self.backbone = ResNet34Backbone(pretrained=pretrained_backbone)
         self.classification = ClassificationHead(manifest.classification.num_classes)
         self.segmentation = SegmentationHead(manifest.segmentation.num_classes)
@@ -88,7 +91,11 @@ class PetModel(nn.Module):
         Raises:
             ValueError: If ``task`` is unsupported.
         """
+        model_device = next(self.backbone.parameters()).device
+        if image.device != model_device:
+            raise ValueError(f"Input is on {image.device}, but model is on {model_device}")
         features = self.backbone(image)
+        self.feature_contract.validate_tensors(image, features)
         if task == "classification":
             return self.classification(features)
         if task == "segmentation":

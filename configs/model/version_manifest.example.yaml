@@ -3,6 +3,8 @@ backbone:
   name: resnet34
   version: backbone-dev
   feature_contract: resnet34-pyramid-v1
+  feature_contract_file: ../interfaces/resnet34-pyramid-v1.yaml
+  feature_contract_sha256: 621a4e27cfe1aec931784b108eea89a02114cea682419d479a43d4744e62297f
 heads:
   classification:
     version: classification-head-dev

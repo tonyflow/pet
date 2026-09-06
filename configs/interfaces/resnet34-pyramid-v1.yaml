@@ -1,0 +1,109 @@
+schema_version: 1
+
+contract:
+  id: resnet34-pyramid-v1
+  kind: backbone-feature-pyramid
+  description: ResNet-34 feature pyramid before global pooling
+  additional_outputs_allowed: false
+
+input:
+  name: image
+  container: torch.Tensor
+  rank: 4
+  layout: NCHW
+  dimensions:
+    batch:
+      symbol: B
+      minimum: 1
+    channels:
+      exact: 3
+    height:
+      symbol: H
+      minimum: 32
+    width:
+      symbol: W
+      minimum: 32
+  dtype:
+    category: floating_point
+    supported: [float16, bfloat16, float32]
+    policy: follows_model_compute_dtype
+  device:
+    policy: same_device_as_model
+  value_semantics:
+    color_space: RGB
+    range: normalized
+    normalization:
+      mean: [0.485, 0.456, 0.406]
+      std: [0.229, 0.224, 0.225]
+
+output:
+  container: mapping
+  key_type: string
+  key_order_significant: false
+  required_keys: [stem, layer1, layer2, layer3, layer4]
+  shared_properties:
+    batch_dimension: same_as_input
+    layout: NCHW
+    dtype: follows_model_compute_dtype
+    device: same_as_input
+    differentiable: true
+    contiguous_required: false
+  tensors:
+    stem:
+      container: torch.Tensor
+      rank: 4
+      channels: 64
+      spatial_stride: 2
+      source: conv1_batchnorm_relu
+      semantic_level: low_level_edges_and_textures
+    layer1:
+      container: torch.Tensor
+      rank: 4
+      channels: 64
+      spatial_stride: 4
+      source: resnet_layer1
+      semantic_level: low_level_features
+    layer2:
+      container: torch.Tensor
+      rank: 4
+      channels: 128
+      spatial_stride: 8
+      source: resnet_layer2
+      semantic_level: intermediate_features
+    layer3:
+      container: torch.Tensor
+      rank: 4
+      channels: 256
+      spatial_stride: 16
+      source: resnet_layer3
+      semantic_level: high_level_features
+    layer4:
+      container: torch.Tensor
+      rank: 4
+      channels: 512
+      spatial_stride: 32
+      source: resnet_layer4
+      semantic_level: deepest_semantic_features
+
+behavior:
+  preserves_batch_size: true
+  accepts_dynamic_batch_size: true
+  accepts_dynamic_spatial_size: true
+  deterministic_given_deterministic_runtime: true
+  mutates_input: false
+
+examples:
+  - input_shape: [16, 3, 224, 224]
+    outputs:
+      stem: [16, 64, 112, 112]
+      layer1: [16, 64, 56, 56]
+      layer2: [16, 128, 28, 28]
+      layer3: [16, 256, 14, 14]
+      layer4: [16, 512, 7, 7]
+  - input_shape: [1, 3, 256, 320]
+    outputs:
+      stem: [1, 64, 128, 160]
+      layer1: [1, 64, 64, 80]
+      layer2: [1, 128, 32, 40]
+      layer3: [1, 256, 16, 20]
+      layer4: [1, 512, 8, 10]

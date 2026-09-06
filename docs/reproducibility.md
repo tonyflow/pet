@@ -8,8 +8,9 @@
 - Validation and test transforms contain no random operations.
 - Training geometric parameters are sampled once and applied to both image and mask. Masks use
   nearest-neighbor interpolation and are converted from trimap labels to binary foreground masks.
-- A model manifest records independently versioned backbone and heads plus an explicit feature
-  compatibility contract.
+- A model manifest records independently versioned backbone and heads. It references an explicit
+  feature contract by ID, file, and SHA-256 digest. The resolved contract is embedded in new
+  checkpoints and is validated against backbone tensors at runtime.
 
 Exact floating-point equality across different hardware, PyTorch versions, or kernels is not
 guaranteed. Production evaluation must retain environment, Git revision, config, model/data

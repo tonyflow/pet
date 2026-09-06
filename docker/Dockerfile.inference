@@ -26,6 +26,7 @@ RUN pip install --no-cache-dir \
 
 COPY src ./src
 COPY configs/model ./configs/model
+COPY configs/interfaces ./configs/interfaces
 RUN useradd --create-home --uid 10001 appuser \
     && chown -R appuser:appuser /app
 

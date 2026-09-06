@@ -15,7 +15,7 @@ import torch
 
 from pet.config import DataConfig
 from pet.data.loaders import build_loaders
-from pet.models import PetModel, load_model_manifest
+from pet.models import ModelManifest, PetModel, load_model_manifest
 from pet.training.checkpoints import load_checkpoint, save_checkpoint
 from pet.training.config import TrainingConfig
 from pet.training.engine import train_one_epoch, trainable_parameters
@@ -70,6 +70,7 @@ def _initialize_run_directory(
     *,
     training_config_path: Path,
     data_config_path: Path,
+    manifest: ModelManifest,
     resume: Path | None,
 ) -> list[dict[str, Any]]:
     if run_dir.exists():
@@ -90,11 +91,21 @@ def _initialize_run_directory(
 
     run_dir.mkdir(parents=True, exist_ok=False)
     (run_dir / "configs").mkdir()
+    (run_dir / "configs" / "model").mkdir()
+    (run_dir / "configs" / "interfaces").mkdir()
     (run_dir / "checkpoints").mkdir()
     (run_dir / "predictions").mkdir()
     shutil.copy2(training_config_path, run_dir / "configs" / training_config_path.name)
     shutil.copy2(data_config_path, run_dir / "configs" / data_config_path.name)
-    shutil.copy2(training.model_manifest, run_dir / "configs" / training.model_manifest.name)
+    shutil.copy2(
+        training.model_manifest, run_dir / "configs" / "model" / training.model_manifest.name
+    )
+    if manifest.backbone.feature_contract_path is None:
+        raise ValueError("Model manifest does not resolve an explicit feature contract file")
+    shutil.copy2(
+        manifest.backbone.feature_contract_path,
+        run_dir / "configs" / "interfaces" / manifest.backbone.feature_contract_path.name,
+    )
     return []
 
 
@@ -136,15 +147,19 @@ def run_training(
     resume: Path | None = None,
 ) -> dict[str, Any]:
     """Train, validate, checkpoint, and test one independently versioned task head."""
+    manifest = load_model_manifest(training.model_manifest)
+    contract = manifest.backbone.feature_contract_definition
+    if contract is None:
+        raise ValueError("Model manifest does not contain a resolved feature contract")
+    contract.validate_preprocessing(tuple(data.transforms.mean), tuple(data.transforms.std))
     history = _initialize_run_directory(
         run_dir,
         training,
         training_config_path=training_config_path,
         data_config_path=data_config_path,
+        manifest=manifest,
         resume=resume,
     )
-
-    manifest = load_model_manifest(training.model_manifest)
     model = PetModel(manifest, pretrained_backbone=training.pretrained_backbone).to(device)
     model.set_train_mode(training.mode)
     optimizer = torch.optim.AdamW(
